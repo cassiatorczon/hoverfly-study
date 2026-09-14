@@ -13,7 +13,7 @@ add_hoverfly_tactics [
     rw [List.cons_append]
     rw [List.length_cons]
     induction HYP
-    rw [HYP]
+    simp
   ]
 
 /-
