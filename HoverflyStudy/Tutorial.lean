@@ -14,6 +14,9 @@ add_hoverfly_tactics [
     rw [List.length_cons]
   ]
 
+/-
+Associativity of addition: n + (m + p) is the same as (n + m) + p.
+-/
 theorem demo_add_assoc (n m p : Nat) :
     n + (m + p) = (n + m) + p := by
   hoverfly /- Place cursor here and open the Infoview to start. -/
