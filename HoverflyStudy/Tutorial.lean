@@ -12,6 +12,7 @@ add_hoverfly_tactics [
     rw [Nat.add_succ]
     rw [List.cons_append]
     rw [List.length_cons]
+    induction HYP
   ]
 
 /-
