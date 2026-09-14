@@ -84,6 +84,7 @@ add_hoverfly_tactics [
   simp_all
   aesop
   grind
+  cases HYP
 ]
 
 add_hoverfly_tactics [
@@ -118,18 +119,22 @@ add_hoverfly_tactics [
 
 /-! ## Canonical forms -/
 
-/- Theorem 1 -/
 theorem canonical_forms_bool (t : Tm) (ht : [] ⊢ t ∶ .bool) (hv : Value t) :
-    t = .tru ∨ t = .fls := by
-  -- ✅ Good for hoverfly
-  hoverfly
+    t = .tru ∨ t = .fls := by cases hv
+                              · contradiction
+                              · aesop
+                              · aesop
 
-/- Theorem 2 -/
 theorem canonical_forms_fun (t : Tm) (T₁ T₂ : Ty)
     (ht : [] ⊢ t ∶ .arrow T₁ T₂) (hv : Value t) :
     ∃ x body, t = .lam x T₁ body := by
-  -- ✅ Good for hoverfly
-  hoverfly
+  cases hv
+  case lam x T body =>
+    exists x, body
+    cases ht
+    rfl
+  case tru => contradiction
+  case fls => contradiction
 
 add_hoverfly_tactics [
   apply canonical_forms_bool
@@ -138,38 +143,56 @@ add_hoverfly_tactics [
 
 /-! ## Progress -/
 
-/- Theorem 3 -/
 theorem progress (t : Tm) (T : Ty) (ht : [] ⊢ t ∶ T) :
     Value t ∨ ∃ t', t ==> t' := by
-  -- ❌ Hard for hoverfly
-  --
-  -- You need to be careful about how you specialize your IHs in the `app` case, and
-  -- `apply_assumption` doesn't do what you want
-  hoverfly
+  induction t generalizing T with
+  | var y =>
+    cases ht with
+    | var h => simp at h
+  | app t₁ t₂ ih₁ ih₂ =>
+    cases ht with
+    | app ht₁ ht₂ =>
+      right
+      rcases ih₁ _ ht₁ with hv₁ | ⟨t₁', hs₁⟩
+      · rcases ih₂ _ ht₂ with hv₂ | ⟨t₂', hs₂⟩
+        · obtain ⟨x, body, rfl⟩ := canonical_forms_fun _ _ _ ht₁ hv₁
+          exact ⟨_, Step.appAbs hv₂⟩
+        · exact ⟨_, Step.app₂ hv₁ hs₂⟩
+      · exact ⟨_, Step.app₁ hs₁⟩
+  | lam x T₁ body _ => exact Or.inl Value.lam
+  | tru => exact Or.inl Value.tru
+  | fls => exact Or.inl Value.fls
+  | ite c th el ihc _ _ =>
+    cases ht with
+    | ite hc _ _ =>
+      right
+      rcases ihc _ hc with hv | ⟨c', hs⟩
+      · rcases canonical_forms_bool _ hc hv with rfl | rfl
+        · exact ⟨_, Step.iteTru⟩
+        · exact ⟨_, Step.iteFls⟩
+      · exact ⟨_, Step.ite hs⟩
 
 add_hoverfly_tactics [
   apply progress
 ]
 
+
 /-! ## Preservation -/
 
-/- Theorem 4 -/
+/- Problem A -/
 theorem weakening (Γ Δ : Ctx) (t : Tm) (T : Ty)
     (hsub : ∀ x U, Γ.lookup x = some U → Δ.lookup x = some U)
     (ht : Γ ⊢ t ∶ T) :
     Δ ⊢ t ∶ T := by
-  -- ✅ Good for hoverfly
   hoverfly
 
 add_hoverfly_tactics [
   apply weakening
 ]
 
-/- Theorem 5 -/
+/- Problem A -/
 theorem weakening_empty (Γ : Ctx) (t : Tm) (T : Ty) (ht : [] ⊢ t ∶ T) :
     Γ ⊢ t ∶ T := by
-  -- ✅ Good for hoverfly
-  -- This has an nteresting instance where order of mvars matters
   hoverfly
 
 add_hoverfly_tactics [
@@ -191,26 +214,74 @@ add_hoverfly_tactics [
   apply lookup_swap
 ]
 
-/- Theorem 6 -/
 theorem substitution_preserves_typing (Γ : Ctx) (x : String) (U T : Ty) (t v : Tm)
     (ht : ((x, U) :: Γ) ⊢ t ∶ T) (hv : [] ⊢ v ∶ U) :
     Γ ⊢ subst x v t ∶ T := by
-  -- TODO: I haven't gotten to this yet, but it's pretty involved so I suspect it's not going to be
-  -- obvious
-  hoverfly
+  induction t generalizing Γ T with
+  | var y =>
+    cases ht with
+    | var h =>
+      by_cases hxy : x = y
+      · subst hxy
+        simp at h
+        subst h
+        simpa [subst] using weakening_empty Γ v _ hv
+      · simp only [subst, if_neg hxy]
+        simp [Ne.symm hxy] at h
+        exact .var h
+  | app t₁ t₂ ih₁ ih₂ =>
+    cases ht with
+    | app ht₁ ht₂ =>
+      simp only [subst]
+      exact .app (ih₁ _ _ ht₁) (ih₂ _ _ ht₂)
+  | lam y T₁ body ih =>
+    cases ht with
+    | lam hbody =>
+      by_cases hxy : x = y
+      · subst hxy
+        simp only [subst]
+        exact .lam (weakening _ _ _ _ (lookup_shadow _ _ _ _) hbody)
+      · simp only [subst, if_neg hxy]
+        exact .lam (ih _ _ (weakening _ _ _ _ (lookup_swap _ _ _ _ _ hxy) hbody))
+  | tru =>
+    cases ht with
+    | tru => simpa [subst] using HasType.tru
+  | fls =>
+    cases ht with
+    | fls => simpa [subst] using HasType.fls
+  | ite c th el ihc iht ihe =>
+    cases ht with
+    | ite hc hth hel =>
+      simp only [subst]
+      exact .ite (ihc _ _ hc) (iht _ _ hth) (ihe _ _ hel)
 
 add_hoverfly_tactics [
   apply substitution_preserves_typing
 ]
 
-/- Theorem 7 -/
 theorem preservation (t t' : Tm) (T : Ty) (ht : [] ⊢ t ∶ T) (hstep : t ==> t') :
     [] ⊢ t' ∶ T := by
-  -- ⚠️ Mostly good for hoverfly
-  -- This keeps triggering a bug where I close all
-  -- of the cases but for some reason the final proof still has a sorry. I suspect some goal is
-  -- getting dropped? But I'm not sure
-  hoverfly
+  induction hstep generalizing T with
+  | appAbs hv =>
+    cases ht with
+    | app ht₁ ht₂ =>
+      cases ht₁ with
+      | lam hbody => exact substitution_preserves_typing _ _ _ _ _ _ hbody ht₂
+  | app₁ _ ih =>
+    cases ht with
+    | app ht₁ ht₂ => exact .app (ih _ ht₁) ht₂
+  | app₂ _ _ ih =>
+    cases ht with
+    | app ht₁ ht₂ => exact .app ht₁ (ih _ ht₂)
+  | iteTru =>
+    cases ht with
+    | ite _ hth _ => exact hth
+  | iteFls =>
+    cases ht with
+    | ite _ _ hel => exact hel
+  | ite _ ih =>
+    cases ht with
+    | ite hc hth hel => exact .ite (ih _ hc) hth hel
 
 add_hoverfly_tactics [
   apply preservation
@@ -218,22 +289,8 @@ add_hoverfly_tactics [
 
 /-! ## Consequences -/
 
-/- Theorem 8 -/
+/- Problem B -/
 theorem preservation_multi (t t' : Tm) (T : Ty)
     (ht : [] ⊢ t ∶ T) (hsteps : t ==>* t') :
     [] ⊢ t' ∶ T := by
-  -- ✅ Good for hoverfly
-  -- There are some wrong turns here that backtracking helps with
   hoverfly
-
-/- Theorem 9 -/
-theorem soundness (t t' : Tm) (T : Ty) (ht : [] ⊢ t ∶ T) (hsteps : t ==>* t') :
-    ¬ Stuck t' := by
-  -- ❌ Hard for hoverfly
-  -- Hoverfly can actually do the proof from here, but you need to instantiate progress and
-  -- preservation first
-  have ht' := preservation_multi _ _ _ ht hsteps
-  have := progress _ _ ht'
-  hoverfly
-
-end STLC
