@@ -1,0 +1,22 @@
+{
+    "lean4.automaticallyBuildDependencies": true,
+    "chat.disableAIFeatures": true,
+    "chat.extensionUnification.enabled": false,
+    "C_Cpp.copilotHover": "disabled",
+    "chat.agent.enabled": false,
+    "chat.commandCenter.enabled": false,
+    "chat.detectParticipant.enabled": false,
+    "github.copilot.enable": {
+        "*": false
+    },
+    "github.copilot.nextEditSuggestions.enabled": false,
+    "editor.inlineSuggest.showToolbar": "never",
+    "workbench.browser.enableChatTools": false,
+    "chat.tools.terminal.enableAutoApprove": false,
+    "chat.mcp.autostart": "never",
+    "github.copilot.chat.claudeAgent.enabled": false,
+    "chat.viewSessions.enabled": false,
+    "chat.automations.enabled": false,
+    "inlineChat.accessibleDiffView": "off",
+    "terminal.integrated.initialHint": false
+}

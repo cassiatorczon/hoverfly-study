@@ -1,0 +1,11 @@
+name = "hoverfly-study"
+version = "0.1.0"
+defaultTargets = ["HoverflyStudy"]
+
+[[lean_lib]]
+name = "HoverflyStudy"
+
+[[require]]
+name = "Hoverfly"
+git = "https://github.com/cassiatorczon/hoverfly"
+rev = "main"
