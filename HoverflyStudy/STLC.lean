@@ -332,4 +332,12 @@ theorem preservation_multi (t t' : Tm) (T : Ty)
     [] ⊢ t' ∶ T := by
   sorry
 
+/-
+Canonical forms for booleans.
+If a value has type bool int he empty context, it is either true or false.
+-/
+theorem canonical_forms_bool (t : Tm) (ht : [] ⊢ t ∶ .bool) (hv : Value t) :
+    t = .tru ∨ t = .fls := by
+  sorry
+
 /- ------------------------- End Problem B ------------------------- -/
